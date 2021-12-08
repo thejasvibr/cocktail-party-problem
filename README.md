@@ -1,34 +1,33 @@
 # BioCPPNet: Automatic Bioacoustic Source Separation with Deep Neural Networks
 
-![title](Assets/Figure1.png)
+Fork of Bermant 2021 (Sci. Rep.) - my own notes and points which need clarification during installation and recreating the steps. 
 
-In our recent [paper](https://www.biorxiv.org/content/10.1101/2021.06.18.449016v1), we propose the Bioacoustic Cocktail Party Problem Network (BioCPPNet), a modular and lightweight convolutional neural network-based architecture optimized for bioacoustic source separation. To our knowledge, this paper redefines the state-of-the-art in single-channel bioacoustic source separation across a diverse set of non-human animal species.
-
-Employing a custom deep neural network architecture, the BioCPPNet, we separate acoustic mixtures containing overlapping calls into predictions of the disentangled sources. We train the model using a permutation-invariant training (PIT) criterion as is common in the human speech separation literature, and we use an objective training function motivated by the perceptual audio quality of the reconstructed signals. We apply our methods to a range of animals, including macaques, bottlenose dolphins, and Egyptian fruit bats. We assess the performance of the framework using quantitative metrics including the scale-invariant signal-to-distortion ratio (SI-SDR) and downstream identify classification accuracy.
-
-As part of this study, we also report state-of-the-art improvements in bioacoustic classification tasks, i.e. labeling the identity of the animal responsible for generating a given vocalization. For instance, our macaque classifier model achieves 99.3% accuracy across 8 individuals and maintains an accuracy of 93.7%, even after calls are mixed and separated.
-
-We specifically design our technique to address the technical and logistical challenges of working in the bioacoustic domain, which include limited data availability, unique vocal behavior requiring computationally expensive high sampling rates, and uncertainty in representing bioacoustic signals, among others. BioCPPNet serves as a general pipeline for bioacoustic source separation that performs well across a distribution of non-human acoustic signals. 
-
-We believe that this study has broad scientific interest, as it implements cutting edge machine learning techniques to open the door to accessing large quantities of previously unusable bioacoustic data containing overlapping vocalizations. This will have important implications for future research, since increased access to larger bioacoustic datasets can empower the scientific community to address a greater quantity of more complex research questions, which can facilitate the development of improved conservation and management strategies for the earth’s non-human species.
-
-![title](Assets/Visualizations.png)
+### System description: Win 10 Dell Laptop,intel i7 CPU, 16GB ram,no graphics card
 
 ## Setup
 1. Clone the repo
 ```command
 git clone https://github.com/earthspecies/cocktail-party-problem.git
 ```
+
+*works on Win10*
+
 2. Install the requirements
 ```command
 pip install -r requirements.txt
 ```
 
+*works on Win10* 
+
 ## Pipeline
 
 1. Download the bioacoustic datasets into a directory `BioacousticData/`
 
-2. Generate the config.json file containing the configurations for constructing datasets, building and training models, and evaluating model performance 
+a) *What is a 'dataset' - the raw unzipped folder? The default Git repo has a 'Data' folder, or are we supposed to make a separate BioacousticData folder?*
+b) Managed to download the Macaque dataset from https://datadryad.org/stash/dataset/doi:10.5061/dryad.7f4p9 - and the individual coo data is a couple of folders into the raw unzipped folder.
+
+2. Generate the config.json file containing the configurations for constructing datasets, building and training models, and evaluating model performance. *config file seems to be generated without error*
+
 
    ```command
    python ConfigGenerator.py --animal Animal --file config.json
@@ -36,21 +35,97 @@ pip install -r requirements.txt
 
    where `Animal` is the particular animal of interest (in our case, `Macaque`,  `Dolphin`, or `Bat`).
 
+
 3. Generate the datasets for training and evaluating the classifier and separator models
 
    ```command
    python DataGenerator.py --animal Animal --data_directory Data --config config.json --os Ubuntu --objective Classification --regime Closed
    ```
+ ### Error 1
+*here the training/eval datasets are created using the 'Data' folder as input. This is where the first error message pops in*
 
-   ```command
-   python DataGenerator.py --animal Animal --data_directory Data --config config.json --os Ubuntu --objective Separation --regime Closed
-   ```
+```
+(sourcesep) PS C:\Users\..\cocktail-party-problem> python DataGenerator.py --animal Macaque --data_directory Data --config config.json --os Ubuntu --objective Classification --regime Closed
+Traceback (most recent call last):
+  File "C:\Users\..\cocktail-party-problem\DataHelpers.py", line 5, in <module>
+    from fastai.vision.all import untar_data, get_files
+  File "C:\Users\theja\anaconda3\envs\sourcesep\lib\site-packages\fastai\vision\all.py", line 1, in <module>
+    from . import models
+  File "C:\Users\theja\anaconda3\envs\sourcesep\lib\site-packages\fastai\vision\models\__init__.py", line 1, in <module>
+    from . import xresnet
+  File "C:\Users\theja\anaconda3\envs\sourcesep\lib\site-packages\fastai\vision\models\xresnet.py", line 13, in <module>
+    from torchvision.models.utils import load_state_dict_from_url
+ModuleNotFoundError: No module named 'torchvision.models.utils'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "DataGenerator.py", line 14, in <module>
+    from DataHelpers import *
+  File "C:\Users\..\cocktail-party-problem\DataHelpers.py", line 7, in <module>
+    from fastai2.vision.all import untar_data, get_files
+ModuleNotFoundError: No module named 'fastai2'
+```
+*This error is apparently because torchvision changed some things and fastai hadn't kept up with these changes (see [Issue 3507](https://github.com/fastai/fastai/issues/3507)*
+
+*Potential solutions:*
+*1)uninstall default pip installed torch and torchvision, conda install the cpu version. (```pip uninstall torchvision``` and then ``` conda install pytorch torchvision torchaudio cpuonly -c pytorch```)*
+*2) Also uninstall the pip installed fastai and conda install it afresh. (first ```pip uninstall fastai``` and then ```conda install -c fastchan fastai anaconda```)*
+
+### Error 2
+*Now, after the above steps, we sort out the ```torchvision.models.utils``` error, and proceed to get Error 2 - which is because the URL in the Macaque part of the ```DataHelpers.py``` is broken.*
+
+```
+Traceback (most recent call last):
+  File "DataGenerator.py", line 198, in <module>
+    X, Y = generate_labeled_waveforms(animal,
+  File "DataGenerator.py", line 35, in generate_labeled_waveforms
+    X, Y = loader.run(balance=kwargs['balance'])
+  File "C:\Users\..\cocktail-party-problem\DataHelpers.py", line 91, in run
+    data_df = self.fixed_dataframe()
+  File "C:\Users\..\cocktail-party-problem\DataHelpers.py", line 52, in fixed_dataframe
+    dataframe = self.construct_dataframe()
+  File "C:\Users\..\cocktail-party-problem\DataHelpers.py", line 24, in construct_dataframe
+    path = untar_data(self.url)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\site-packages\fastai\data\external.py", line 124, in untar_data
+    return d.get(url, force=force_download, extract_key=c_key)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\site-packages\fastdownload\core.py", line 121, in get
+    self.download(url, force=force)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\site-packages\fastdownload\core.py", line 96, in download
+    return download_and_check(url, urldest(url, self.arch_path()), self.module, force)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\site-packages\fastdownload\core.py", line 65, in download_and_check
+    res = download_url(url, fpath)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\site-packages\fastdownload\core.py", line 23, in download_url
+    return urlsave(url, dest, reporthook=progress if show_progress else None, timeout=timeout)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\site-packages\fastcore\net.py", line 178, in urlsave
+    nm,msg = urlretrieve(url, dest, reporthook, timeout=timeout)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\site-packages\fastcore\net.py", line 143, in urlretrieve
+    with contextlib.closing(urlopen(url, data, timeout=timeout)) as fp:
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\site-packages\fastcore\net.py", line 105, in urlopen
+    return _opener.open(urlwrap(url, data=data, headers=headers), timeout=timeout)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\urllib\request.py", line 531, in open
+    response = meth(req, response)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\urllib\request.py", line 640, in http_response
+    response = self.parent.error(
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\urllib\request.py", line 569, in error
+    return self._call_chain(*args)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\urllib\request.py", line 502, in _call_chain
+    result = func(*args)
+  File "C:\Users\..\anaconda3\envs\sourcesep\lib\urllib\request.py", line 649, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 404: Not Found
+```
+
+```
+python DataGenerator.py --animal Animal --data_directory Data --config config.json --os Ubuntu --objective Separation --regime Closed
+```
+
+
+We can also consider the open speaker regime in which the evaluation subset contains calls generated by individuals not included in the training distribution
 	
-	We can also consider the open speaker regime in which the evaluation subset contains calls generated by individuals not included in the training distribution
-	
-   ```command
-   python DataGenerator.py --animal Animal --data_directory Data --config config.json --os Ubuntu --objective Separation --regime Open
-   ```
+```
+python DataGenerator.py --animal Animal --data_directory Data --config config.json --os Ubuntu --objective Separation --regime Open
+```
 4. Train the classifier model, which is used to evaluate the performance of the separator model on a downstream task
 
    ```command
